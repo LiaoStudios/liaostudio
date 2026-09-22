@@ -124,10 +124,10 @@ export default function Work() {
             <div className="mt-10 flex justify-center">
               <button
                 type="button"
-                onClick={() => setLimit((n) => n + STEP)}
+                onClick={() => setLimit(matching.length)}
                 className="group inline-flex items-center gap-2.5 rounded-full border border-gray-300 bg-white px-6 py-3 text-[14px] font-medium text-[#0B1220] transition-colors duration-300 hover:border-[#0B1220] hover:bg-[#0B1220] hover:text-white"
               >
-                Mostra altri {Math.min(rest, STEP)}
+                Mostra tutti i progetti
                 <Plus size={15} className="transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:rotate-90" />
               </button>
             </div>

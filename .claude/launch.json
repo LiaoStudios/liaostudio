@@ -1,6 +1,6 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "liaostudio", "runtimeExecutable": "node", "runtimeArgs": ["build/serve.js"], "port": 4186 }
+    { "name": "liaostudio", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 4186 }
   ]
 }

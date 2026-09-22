@@ -10,6 +10,6 @@ export default defineConfig({
       resolveDependencies: (_url, deps) => deps.filter((d) => !d.includes('shaders')),
     },
   },
-  server: { port: 4186, host: '127.0.0.1' },
-  preview: { port: 4187, host: '127.0.0.1' },
+  server: { port: 4186, host: true },
+  preview: { port: 4187, host: true },
 });
