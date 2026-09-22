@@ -3,20 +3,25 @@ import { BRAND } from '../theme';
 
 const ShaderStack = lazy(() => import('./ShaderStack'));
 
-/** Fondale di scorta: stesse tinte, zero JavaScript. Si vede subito. */
+/**
+ * Fondale di scorta: stesse tinte dello shader vero, ma mosse con CSS
+ * puro invece che con un canvas — gira ovunque, incluso sulla maggior
+ * parte dei telefoni, dove WebGPU non è ancora disponibile.
+ */
 function Fallback() {
   return (
     <>
       <div className="absolute inset-0 bg-[#EFEFEF]" />
       <div
-        className="absolute inset-0 opacity-[0.55]"
+        className="hero-fallback-stripes absolute inset-0 opacity-[0.55]"
         style={{
-          background:
+          backgroundImage:
             `repeating-linear-gradient(121deg, #ffffff 0 34px, ${BRAND.blueSoft} 34px 52px, #ffffff 52px 86px)`,
+          backgroundSize: '300% 300%',
         }}
       />
       <div
-        className="absolute inset-0"
+        className="hero-fallback-glow absolute inset-0"
         style={{
           background:
             `radial-gradient(60% 50% at 25% 30%, ${BRAND.blue}22, transparent 70%),` +
