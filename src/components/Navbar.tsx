@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Clock, Menu, X } from 'lucide-react';
 import { RollText } from './TextRoll';
+import { asset } from '../lib/asset';
 
 const EASE = 'ease-[cubic-bezier(0.25,0.1,0.25,1)]';
 const LINKS = [
@@ -43,7 +44,7 @@ export default function Navbar() {
         <nav className="flex items-center gap-4 rounded-full bg-white p-[5px] shadow-[0_1px_2px_rgba(11,18,32,0.06)]">
           <a href="#top" className="flex items-center gap-2.5 shrink-0" aria-label="Liao Studio">
             <span className="grid place-items-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#0B1220]">
-              <img src="/brand/mark-light.png" alt="" className="w-[18px] h-[18px] object-contain" />
+              <img src={asset('/brand/mark-light.png')} alt="" className="w-[18px] h-[18px] object-contain" />
             </span>
             <span className="hidden sm:block text-[14px] font-medium tracking-tight text-gray-900 pr-1">
               Liao Studio

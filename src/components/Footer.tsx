@@ -1,4 +1,5 @@
 import { EMAIL } from './Contact';
+import { asset } from '../lib/asset';
 import { VISIBLE } from '../data/projects';
 
 const LINKS = [
@@ -18,7 +19,7 @@ export default function Footer() {
           <div>
             <a href="#top" className="flex items-center gap-2.5">
               <span className="grid h-10 w-10 place-items-center rounded-full bg-white/10">
-                <img src="/brand/mark-light.png" alt="" className="h-5 w-5 object-contain" />
+                <img src={asset('/brand/mark-light.png')} alt="" className="h-5 w-5 object-contain" />
               </span>
               <span className="text-[15px] font-medium tracking-tight">Liao Studio</span>
             </a>

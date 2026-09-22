@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { BRAND } from '../theme';
+import { asset } from '../lib/asset';
 
-const LOGO = '/brand/mark.png';
+const LOGO = asset('/brand/mark.png');
 
 /**
  * Il marchio in filigrana dietro l'hero.

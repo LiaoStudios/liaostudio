@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowUpRight, Plus } from 'lucide-react';
 import SectionHead from './SectionHead';
 import { useProgetti, type UIProject } from '../hooks/useProgetti';
+import { asset } from '../lib/asset';
 import type { CatKey } from '../data/projects';
 
 const EASE = 'ease-[cubic-bezier(0.25,0.1,0.25,1)]';
@@ -18,7 +19,7 @@ function Card({ p, catLabel }: { p: UIProject; catLabel: (k: string) => string }
         className="relative block aspect-[329/246] overflow-hidden rounded-2xl bg-gray-200 cursor-pointer"
       >
         <img
-          src={`/work/${p.slug}.jpg`}
+          src={asset(`/work/${p.slug}.jpg`)}
           alt={`Anteprima del sito realizzato per ${p.name}`}
           loading="lazy"
           className={`h-full w-full object-cover object-top transition-transform duration-[900ms] ${EASE} group-hover:scale-[1.04]`}
