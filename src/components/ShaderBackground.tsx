@@ -12,20 +12,17 @@ function Fallback() {
   return (
     <>
       <div className="absolute inset-0 bg-[#EFEFEF]" />
+      {/* lamelle di vetro satinato */}
+      <div className="hero-lamelle absolute inset-0" />
+      {/* riflessi iridescenti sui bordi delle lamelle */}
+      <div className="hero-iride absolute inset-0" />
+      {/* i due bagliori nei blu del marchio */}
       <div
-        className="hero-fallback-stripes absolute inset-0 opacity-[0.55]"
-        style={{
-          backgroundImage:
-            `repeating-linear-gradient(121deg, #ffffff 0 34px, ${BRAND.blueSoft} 34px 52px, #ffffff 52px 86px)`,
-          backgroundSize: '300% 300%',
-        }}
-      />
-      <div
-        className="hero-fallback-glow absolute inset-0"
+        className="hero-bagliore absolute inset-0"
         style={{
           background:
-            `radial-gradient(60% 50% at 25% 30%, ${BRAND.blue}22, transparent 70%),` +
-            `radial-gradient(50% 45% at 78% 65%, ${BRAND.navy}1c, transparent 70%)`,
+            `radial-gradient(62% 52% at 24% 28%, ${BRAND.blue}1f, transparent 72%),` +
+            `radial-gradient(52% 46% at 78% 66%, ${BRAND.navy}18, transparent 72%)`,
         }}
       />
     </>

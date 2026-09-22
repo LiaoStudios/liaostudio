@@ -4,45 +4,39 @@ import { asset } from '../lib/asset';
 
 const LOGO = asset('/brand/mark.png');
 
-/** Un mouse vero, non un dito: solo qui ha senso un effetto "al passaggio". */
+/** Un mouse vero, non un dito: solo qui ha senso inseguire il puntatore. */
 const POINTER_QUERY = '(hover: hover) and (pointer: fine)';
 
 /**
  * Il marchio in filigrana dietro l'hero.
  *
- * Non è un pannello che compare sopra lo sfondo: sono due luci, alla stessa
- * "quota" dello sfondo, che si fondono con `mix-blend-mode` invece di
- * coprirlo con un colore piatto.
+ * Non è un pannello sopra lo sfondo: sono due luci, alla stessa "quota"
+ * dello sfondo, che si fondono con `mix-blend-mode` invece di coprirlo.
  *
  *  1. la filigrana ferma, quasi invisibile — il logo è sempre lì;
- *  2. un alone blu ampio e sfumato che segue il cursore ovunque tu vada,
- *     in `multiply`: scurisce e intona lo sfondo, non lo nasconde;
- *  3. la sagoma del logo, in bianco, in `screen`: si accende solo dove il
- *     cursore la sfiora. Bianco su un alone blu crea il contrasto che fa
- *     risaltare la forma — è quello, non un riempimento pieno, a "rivelarla".
+ *  2. un alone blu ampio e sfumato, in `multiply`: intona lo sfondo;
+ *  3. la sagoma del logo in bianco, in `screen`: dove l'alone la sfiora, il
+ *     bianco sul blu crea il contrasto che rivela la forma.
  *
- * I due strati che si accendono esistono **solo** dove c'è un mouse vero.
- * Su telefono e tablet non vengono proprio creati: un tap, su iOS e Android,
- * lascia l'elemento in stato `:hover` finché non tocchi altrove, e il
- * `group-hover` sarebbe rimasto acceso per sempre — il marchio bianco e
- * l'alone blu piantati in mezzo all'hero invece di un accenno. (Il flag
- * `hoverOnlyWhenSupported` di Tailwind copre `hover:` ma non `group-hover:`,
- * quindi la difesa va messa qui.)
+ * **Con un mouse**, i livelli 2 e 3 seguono il puntatore (`pointermove`) e si
+ * spengono quando esce dalla finestra — così com'è sempre stato.
  *
- * La posizione — che deve seguire il puntatore pixel per pixel — viaggia su
- * variabili CSS aggiornate in un `requestAnimationFrame`, così il movimento
- * del mouse non passa mai da React.
+ * **Su touch** non c'è un mouse da inseguire, e agganciare `pointerdown` /
+ * `pointermove` all'intera finestra per simularne uno disturbava lo scroll e
+ * i gesti normali della pagina (il browser iniziava a "trascinare" invece di
+ * scorrere). Lì l'effetto resta comunque identico — stesso alone, stessa
+ * sagoma bianca a contrasto — ma il movimento è un'animazione CSS automatica
+ * e continua: nessun listener, nessuna interferenza col tocco.
  */
 export default function LogoWatermark() {
   const root = useRef<HTMLDivElement>(null);
-  const [canHover, setCanHover] = useState(false);
+  const [conMouse, setConMouse] = useState(false);
+  const [acceso, setAcceso] = useState(false);
 
-  // se l'utente passa da tablet a mouse (o collega una tastiera con trackpad)
-  // la media query cambia da sola: restiamo in ascolto invece di leggerla una volta
   useEffect(() => {
     const mq = window.matchMedia?.(POINTER_QUERY);
     if (!mq) return;
-    const sync = () => setCanHover(mq.matches);
+    const sync = () => setConMouse(mq.matches);
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
@@ -50,67 +44,74 @@ export default function LogoWatermark() {
 
   useEffect(() => {
     const el = root.current;
-    if (!el || !canHover) return;
+    if (!el || !conMouse) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
-    let x = 0, y = 0, queued = false, raf = 0;
-    const paint = () => {
-      queued = false;
+    let x = 0, y = 0, inCoda = false, raf = 0;
+    const disegna = () => {
+      inCoda = false;
       const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', `${x - r.left}px`);
-      el.style.setProperty('--my', `${y - r.top}px`);
+      el.style.setProperty('--mx', `${((x - r.left) / r.width) * 100}%`);
+      el.style.setProperty('--my', `${((y - r.top) / r.height) * 100}%`);
     };
-    const onMove = (e: PointerEvent) => {
+    const muovi = (e: PointerEvent) => {
       x = e.clientX; y = e.clientY;
-      if (!queued) { queued = true; raf = requestAnimationFrame(paint); }
+      setAcceso(true);
+      if (!inCoda) { inCoda = true; raf = requestAnimationFrame(disegna); }
     };
+    const spegni = () => setAcceso(false);
 
-    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointermove', muovi, { passive: true });
+    document.addEventListener('pointerleave', spegni);
     return () => {
-      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointermove', muovi);
+      document.removeEventListener('pointerleave', spegni);
       cancelAnimationFrame(raf);
     };
-  }, [canHover]);
+  }, [conMouse]);
 
   const size = 'w-[min(56vw,660px)]';
-  const ambientSpot =
+  const aloneSpot =
     'radial-gradient(circle 320px at var(--mx,50%) var(--my,42%),' +
     ' #000 0%, rgba(0,0,0,.72) 44%, transparent 80%)';
   const logoSpot =
     'radial-gradient(circle 210px at var(--mx,50%) var(--my,42%),' +
     ' #000 0%, rgba(0,0,0,.78) 48%, transparent 82%)';
 
+  // col mouse: acceso solo quando si muove. Su touch: sempre acceso, e a
+  // muoversi è l'animazione automatica invece del dito.
+  const visibile = conMouse ? acceso : true;
+  const classeAuto = conMouse ? '' : ' hero-watermark-auto';
+
   return (
     <div
       ref={root}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-[15] grid place-items-center overflow-hidden"
+      className={`pointer-events-none absolute inset-0 z-[15] grid place-items-center overflow-hidden${classeAuto}`}
     >
-      {/* 1 — filigrana ferma, quasi invisibile: c'è sempre, anche su telefono */}
+      {/* 1 — filigrana ferma, sempre presente */}
       <img src={LOGO} alt="" draggable={false} className={`${size} select-none opacity-[0.045]`} />
 
-      {/* 2 e 3 esistono solo dove c'è un mouse: su touch resterebbero accesi
-          per sempre dopo il primo tap (vedi la nota in testa al file) */}
-      {canHover && (
-      <>
-      {/* 2 — alone blu ambientale: si fonde con lo sfondo, non lo copre */}
+      {/* 2 — alone blu: si fonde con lo sfondo, non lo copre */}
       <div
-        className="absolute inset-0 opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-[0.85]"
+        className="absolute inset-0 transition-opacity duration-500 ease-out"
         style={{
+          opacity: visibile ? 0.85 : 0,
           backgroundColor: BRAND.blue,
           mixBlendMode: 'multiply',
           filter: 'blur(38px)',
-          WebkitMaskImage: ambientSpot,
-          maskImage: ambientSpot,
+          WebkitMaskImage: aloneSpot,
+          maskImage: aloneSpot,
           WebkitMaskRepeat: 'no-repeat',
           maskRepeat: 'no-repeat',
         }}
       />
 
-      {/* 3 — la sagoma del logo, bianca: risalta per contrasto sull'alone blu */}
+      {/* 3 — la sagoma del logo, bianca: risalta per contrasto sull'alone */}
       <div
-        className="absolute inset-0 grid place-items-center opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+        className="absolute inset-0 grid place-items-center transition-opacity duration-500 ease-out"
         style={{
+          opacity: visibile ? 1 : 0,
           WebkitMaskImage: logoSpot,
           maskImage: logoSpot,
           WebkitMaskRepeat: 'no-repeat',
@@ -133,8 +134,6 @@ export default function LogoWatermark() {
           }}
         />
       </div>
-      </>
-      )}
     </div>
   );
 }

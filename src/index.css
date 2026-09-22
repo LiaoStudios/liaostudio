@@ -34,25 +34,101 @@ body { margin: 0; background: #EFEFEF; }
   box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.35);
 }
 
-/* fondale di scorta dell'hero (dove manca WebGPU, tipico su molti
-   telefoni): le stesse tinte dello shader vero, ma mosse via CSS invece
-   che via canvas — così non resta ferma sui dispositivi che non possono
-   far girare le shader. */
-@keyframes hero-fallback-pan {
+/* Fondale di scorta dell'hero, per i dispositivi senza WebGPU (oggi quasi
+   tutti i telefoni). Lo shader vero è vetro rigato argentato con riflessi
+   iridescenti: qui lo ricostruiamo a strati di gradienti CSS —
+   1. lamelle satinate bianco/argento,
+   2. una sottile iridescenza sfalsata sui bordi delle lamelle,
+   3. due bagliori ampi nei blu del marchio —
+   tutti in lento movimento, così somiglia al desktop invece di essere
+   un motivo a righe piatto. */
+@keyframes hero-lamelle {
   from { background-position: 0 0; }
-  to   { background-position: 220px 220px; }
+  to   { background-position: 340px 340px; }
 }
-@keyframes hero-fallback-drift {
+@keyframes hero-iride {
+  from { background-position: 0 0; opacity: .55; }
+  50%  { opacity: .9; }
+  to   { background-position: -280px 280px; opacity: .55; }
+}
+@keyframes hero-bagliore {
   0%, 100% { transform: translate(0, 0) scale(1); }
   50%      { transform: translate(3%, -2%) scale(1.06); }
 }
-.hero-fallback-stripes {
-  animation: hero-fallback-pan 22s linear infinite;
+
+.hero-lamelle {
+  background-image:
+    repeating-linear-gradient(
+      121deg,
+      #ffffff 0 26px,
+      #f7f9fc 26px 44px,
+      #e8edf5 44px 58px,
+      #f9fbfd 58px 76px,
+      #ffffff 76px 104px
+    );
+  background-size: 260% 260%;
+  animation: hero-lamelle 26s linear infinite;
 }
-.hero-fallback-glow {
-  animation: hero-fallback-drift 14s ease-in-out infinite;
+
+/* i riflessi colorati che il vetro sparge sui bordi delle lamelle */
+.hero-iride {
+  background-image:
+    repeating-linear-gradient(
+      121deg,
+      rgba(255, 158, 196, 0) 0 34px,
+      rgba(255, 158, 196, 0.16) 38px 44px,
+      rgba(126, 232, 250, 0.16) 44px 50px,
+      rgba(185, 160, 255, 0.14) 50px 56px,
+      rgba(255, 255, 255, 0) 60px 104px
+    );
+  background-size: 260% 260%;
+  mix-blend-mode: screen;
+  filter: blur(6px);
+  animation: hero-iride 19s ease-in-out infinite;
+}
+
+.hero-bagliore {
+  animation: hero-bagliore 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-lamelle,
+  .hero-iride,
+  .hero-bagliore { animation: none; }
+}
+
+/* pallino che pulsa: segnala una coda che richiede attenzione (dashboard) */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* Il "riflettore" del logo (alone blu + sagoma bianca) su desktop segue il
+   mouse. Su touch un `pointerdown`/`pointermove` globale interferiva con lo
+   scroll e con la selezione naturale della pagina — invece lì l'effetto
+   scorre da solo, sempre acceso, su un percorso automatico. Le custom
+   property vanno dichiarate con @property per poter essere animate con una
+   transizione fluida (senza, il browser non sa interpolarle). */
+@property --mx {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: 50%;
+}
+@property --my {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: 42%;
+}
+@keyframes hero-watermark-auto {
+  0%   { --mx: 18%; --my: 28%; }
+  25%  { --mx: 78%; --my: 18%; }
+  50%  { --mx: 82%; --my: 72%; }
+  75%  { --mx: 22%; --my: 78%; }
+  100% { --mx: 18%; --my: 28%; }
+}
+.hero-watermark-auto {
+  animation: hero-watermark-auto 17s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-fallback-stripes,
-  .hero-fallback-glow { animation: none; }
+  .hero-watermark-auto { animation: none; }
 }

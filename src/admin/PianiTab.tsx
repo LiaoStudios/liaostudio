@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { PianoRow } from '../lib/types';
-import { INPUT, LABEL } from './adminTheme';
+import { BTN_PRIMARY, CARD, INPUT, LABEL, MUTED } from './adminTheme';
 
 function Row({ p, onSaved }: { p: PianoRow; onSaved: (p: PianoRow) => void }) {
   const [draft, setDraft] = useState(p);
@@ -23,7 +23,7 @@ function Row({ p, onSaved }: { p: PianoRow; onSaved: (p: PianoRow) => void }) {
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className={`${CARD} p-4`}>
       <div className="flex items-center justify-between gap-3">
         <input className={`${INPUT} !py-1.5 text-[15px] font-medium`} value={draft.nome}
           onChange={(e) => setDraft({ ...draft, nome: e.target.value })} />
@@ -63,8 +63,7 @@ function Row({ p, onSaved }: { p: PianoRow; onSaved: (p: PianoRow) => void }) {
 
       {dirty && (
         <div className="mt-3 flex justify-end">
-          <button type="button" onClick={save} disabled={saving}
-            className="flex items-center gap-1.5 rounded-full bg-[#0068F8] px-4 py-1.5 text-[12.5px] font-medium text-white hover:bg-[#0052C7] disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving} className={BTN_PRIMARY}>
             {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             Salva
           </button>
@@ -85,12 +84,12 @@ export default function PianiTab() {
   }, []);
 
   if (rows === null) {
-    return <div className="flex justify-center py-16 text-gray-400"><Loader2 className="animate-spin" /></div>;
+    return <div className="flex justify-center py-16 text-[#94a3b8]"><Loader2 className="animate-spin" /></div>;
   }
 
   return (
     <div>
-      <p className="mb-5 text-[13px] text-gray-500">
+      <p className={`mb-5 ${MUTED}`}>
         Il layout della pagina "Prezzi" resta quello che ho disegnato — qui cambi i numeri e i testi.
       </p>
       <div className="grid gap-3">
