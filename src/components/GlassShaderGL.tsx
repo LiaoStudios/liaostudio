@@ -11,10 +11,12 @@ import { useEffect, useRef } from 'react';
  *   - non chiede un contesto sicuro, quindi funziona pure sul server di rete;
  *   - è leggero (nessun pacchetto da scaricare).
  *
- * Il fragment shader ricostruisce lo stesso vetro argentato del desktop:
- * metallo liquido (noise con domain-warp), lamelle diagonali morbide di
- * vetro rigato, un velo iridescente e i due bagliori nei blu del marchio.
- * Tutto in lento movimento autonomo.
+ * Il fragment shader ricostruisce il vero look del desktop (FlutedGlass):
+ * lamelle diagonali NETTE — non un noise fluido — ciascuna con un profilo a
+ * lente (chiara al centro, in ombra ai bordi) e, esattamente sul bordo tra
+ * una lamella e l'altra, una sottile aberrazione cromatica a prisma (rosso,
+ * verde, blu che si separano). Base chiara, quasi crema. Tutto scorre
+ * lentissimo in autonomia.
  */
 
 const VERT = `
@@ -28,56 +30,56 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uReduce;
 
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  float a = hash(i), b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-float fbm(vec2 p){
-  float v = 0.0, a = 0.5;
-  for (int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; }
-  return v;
+const float PI = 3.14159265;
+
+// una lamella: 0 al centro (rilievo), 1 ai due bordi (valle)
+float laneProfile(float d){
+  float lane = fract(d) - 0.5;   // -0.5..0.5 dentro la lamella
+  return abs(lane) * 2.0;        // 0 al centro, 1 ai bordi
 }
 
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;
-  vec2 p = uv;
+  vec2 p = uv - 0.5;
   p.x *= uRes.x / uRes.y;
 
   // se l'utente ha chiesto "meno animazioni", quasi ferma
-  float t = uTime * (0.05 * (1.0 - 0.9 * uReduce));
+  float t = uTime * (0.06 * (1.0 - 0.92 * uReduce));
 
-  // metallo liquido: noise deformato da altro noise
-  vec2 q = vec2(fbm(p * 2.0 + vec2(0.0, t)), fbm(p * 2.0 + vec2(5.2, 1.3) - t));
-  float base = fbm(p * 2.6 + q * 1.4 + vec2(t * 0.4, -t * 0.3));
-
-  // lamelle diagonali di vetro (~31°), rifratte dal metallo
-  float ang = 0.54;
+  float ang = radians(31.0);
   vec2 dir = vec2(cos(ang), sin(ang));
-  float ridge = sin(dot(p, dir) * 24.0 + base * 6.0 + t * 2.0) * 0.5 + 0.5;
-  float flute = smoothstep(0.14, 0.86, ridge);
+  float freq = 3.6;
 
-  // base argentata, chiara e ariosa
-  float lum = 0.87 + 0.11 * base + 0.07 * flute;
-  vec3 col = vec3(lum);
+  float d = dot(p, dir) * freq + t * 0.8;
 
-  vec3 blue = vec3(0.0, 0.408, 0.973);   // #0068F8
-  vec3 navy = vec3(0.0, 0.125, 0.314);   // #002050
+  float edgeDist = laneProfile(d);                    // 0 centro → 1 bordo
+  float lens = 1.0 - smoothstep(0.0, 1.0, edgeDist);   // 1 centro (chiaro) → 0 bordo
 
-  // un filo di blu del marchio nelle valli delle lamelle
-  col = mix(col, mix(col, blue, 0.40), (1.0 - flute) * 0.16);
+  // luce che scivola lentamente lungo le lamelle
+  float sweep = 0.5 + 0.5 * sin(d * 0.35 + t * 0.6);
 
-  // velo iridescente sui bordi delle lamelle
-  float iri = base * 10.0 + ridge * 7.0 + t * 2.5;
-  vec3 irid = 0.5 + 0.5 * cos(6.2831 * (vec3(0.0, 0.33, 0.66) + iri));
-  col += flute * 0.05 * irid;
+  // base: più contrasto fra centro chiaro e bordo in ombra, come il vetro vero
+  vec3 base = mix(vec3(0.78, 0.82, 0.91), vec3(0.995, 0.995, 1.0), lens);
+  base += 0.06 * sweep * lens;
 
-  // i due bagliori ampi, come sul desktop
-  float g1 = smoothstep(0.66, 0.0, distance(uv, vec2(0.24, 0.72)));
-  float g2 = smoothstep(0.62, 0.0, distance(uv, vec2(0.80, 0.32)));
+  // riflesso a prisma: una linea sottile e netta proprio sul bordo, non
+  // un'area colorata diffusa
+  float band = smoothstep(0.86, 0.965, edgeDist) * (1.0 - smoothstep(0.965, 1.0, edgeDist));
+  float phase = d * 0.9 + t * 1.6;
+  vec3 rainbow = 0.5 + 0.5 * cos(6.2831 * (vec3(0.0, 0.15, 0.5) + phase * 0.18));
+
+  vec3 col = base;
+  col += band * rainbow * 0.55;
+
+  // filo di blu del marchio proprio sul bordo più profondo della valle
+  vec3 blue = vec3(0.0, 0.408, 0.973);
+  float valley = smoothstep(0.85, 1.0, edgeDist);
+  col = mix(col, blue, valley * 0.16);
+
+  // i due bagliori ampi nei blu del marchio, come sul desktop
+  vec3 navy = vec3(0.0, 0.125, 0.314);
+  float g1 = smoothstep(0.62, 0.0, distance(uv, vec2(0.22, 0.74)));
+  float g2 = smoothstep(0.58, 0.0, distance(uv, vec2(0.82, 0.28)));
   col = mix(col, blue, g1 * 0.05);
   col = mix(col, navy, g2 * 0.04);
 
