@@ -103,32 +103,5 @@ body { margin: 0; background: #EFEFEF; }
   50%      { opacity: 0.4; }
 }
 
-/* Il "riflettore" del logo (alone blu + sagoma bianca) su desktop segue il
-   mouse. Su touch un `pointerdown`/`pointermove` globale interferiva con lo
-   scroll e con la selezione naturale della pagina — invece lì l'effetto
-   scorre da solo, sempre acceso, su un percorso automatico. Le custom
-   property vanno dichiarate con @property per poter essere animate con una
-   transizione fluida (senza, il browser non sa interpolarle). */
-@property --mx {
-  syntax: '<percentage>';
-  inherits: true;
-  initial-value: 50%;
-}
-@property --my {
-  syntax: '<percentage>';
-  inherits: true;
-  initial-value: 42%;
-}
-@keyframes hero-watermark-auto {
-  0%   { --mx: 18%; --my: 28%; }
-  25%  { --mx: 78%; --my: 18%; }
-  50%  { --mx: 82%; --my: 72%; }
-  75%  { --mx: 22%; --my: 78%; }
-  100% { --mx: 18%; --my: 28%; }
-}
-.hero-watermark-auto {
-  animation: hero-watermark-auto 17s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-watermark-auto { animation: none; }
-}
+/* Il riflettore del logo (alone blu + sagoma bianca) segue il mouse sul
+   desktop; su touch non viene creato affatto (vedi LogoWatermark). */

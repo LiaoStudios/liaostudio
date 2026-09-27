@@ -18,15 +18,14 @@ const POINTER_QUERY = '(hover: hover) and (pointer: fine)';
  *  3. la sagoma del logo in bianco, in `screen`: dove l'alone la sfiora, il
  *     bianco sul blu crea il contrasto che rivela la forma.
  *
- * **Con un mouse**, i livelli 2 e 3 seguono il puntatore (`pointermove`) e si
- * spengono quando esce dalla finestra — così com'è sempre stato.
+ * **Con un mouse** (desktop), i livelli 2 e 3 seguono il puntatore e si
+ * accendono mentre lo muovi; poco dopo che il mouse si ferma svaniscono, così
+ * non resta un alone blu fisso incollato dove hai lasciato il cursore.
  *
- * **Su touch** non c'è un mouse da inseguire, e agganciare `pointerdown` /
- * `pointermove` all'intera finestra per simularne uno disturbava lo scroll e
- * i gesti normali della pagina (il browser iniziava a "trascinare" invece di
- * scorrere). Lì l'effetto resta comunque identico — stesso alone, stessa
- * sagoma bianca a contrasto — ma il movimento è un'animazione CSS automatica
- * e continua: nessun listener, nessuna interferenza col tocco.
+ * **Su touch** (telefono, tablet) l'effetto non c'è proprio: i livelli 2 e 3
+ * non vengono nemmeno creati. Non c'è un puntatore da seguire, e simularne uno
+ * lasciava un alone blu perennemente acceso in mezzo all'hero — quello che si
+ * vedeva sul telefono. Lì resta solo la filigrana ferma, quasi invisibile.
  */
 export default function LogoWatermark() {
   const root = useRef<HTMLDivElement>(null);
@@ -47,7 +46,7 @@ export default function LogoWatermark() {
     if (!el || !conMouse) return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
-    let x = 0, y = 0, inCoda = false, raf = 0;
+    let x = 0, y = 0, inCoda = false, raf = 0, spegniDopo = 0;
     const disegna = () => {
       inCoda = false;
       const r = el.getBoundingClientRect();
@@ -57,15 +56,19 @@ export default function LogoWatermark() {
     const muovi = (e: PointerEvent) => {
       x = e.clientX; y = e.clientY;
       setAcceso(true);
+      // fermato il mouse ~1s, l'alone svanisce: niente blob blu piantato lì
+      window.clearTimeout(spegniDopo);
+      spegniDopo = window.setTimeout(() => setAcceso(false), 1000);
       if (!inCoda) { inCoda = true; raf = requestAnimationFrame(disegna); }
     };
-    const spegni = () => setAcceso(false);
+    const spegni = () => { window.clearTimeout(spegniDopo); setAcceso(false); };
 
     window.addEventListener('pointermove', muovi, { passive: true });
     document.addEventListener('pointerleave', spegni);
     return () => {
       window.removeEventListener('pointermove', muovi);
       document.removeEventListener('pointerleave', spegni);
+      window.clearTimeout(spegniDopo);
       cancelAnimationFrame(raf);
     };
   }, [conMouse]);
@@ -78,62 +81,62 @@ export default function LogoWatermark() {
     'radial-gradient(circle 210px at var(--mx,50%) var(--my,42%),' +
     ' #000 0%, rgba(0,0,0,.78) 48%, transparent 82%)';
 
-  // col mouse: acceso solo quando si muove. Su touch: sempre acceso, e a
-  // muoversi è l'animazione automatica invece del dito.
-  const visibile = conMouse ? acceso : true;
-  const classeAuto = conMouse ? '' : ' hero-watermark-auto';
-
   return (
     <div
       ref={root}
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 z-[15] grid place-items-center overflow-hidden${classeAuto}`}
+      className="pointer-events-none absolute inset-0 z-[15] grid place-items-center overflow-hidden"
     >
-      {/* 1 — filigrana ferma, sempre presente */}
+      {/* 1 — filigrana ferma, sempre presente (anche su telefono) */}
       <img src={LOGO} alt="" draggable={false} className={`${size} select-none opacity-[0.045]`} />
 
-      {/* 2 — alone blu: si fonde con lo sfondo, non lo copre */}
-      <div
-        className="absolute inset-0 transition-opacity duration-500 ease-out"
-        style={{
-          opacity: visibile ? 0.85 : 0,
-          backgroundColor: BRAND.blue,
-          mixBlendMode: 'multiply',
-          filter: 'blur(38px)',
-          WebkitMaskImage: aloneSpot,
-          maskImage: aloneSpot,
-          WebkitMaskRepeat: 'no-repeat',
-          maskRepeat: 'no-repeat',
-        }}
-      />
+      {/* 2 e 3 — l'alone che segue il mouse: SOLO col mouse. Su touch niente. */}
+      {conMouse && (
+        <>
+          {/* 2 — alone blu: si fonde con lo sfondo, non lo copre */}
+          <div
+            className="absolute inset-0 transition-opacity duration-700 ease-out"
+            style={{
+              opacity: acceso ? 0.85 : 0,
+              backgroundColor: BRAND.blue,
+              mixBlendMode: 'multiply',
+              filter: 'blur(38px)',
+              WebkitMaskImage: aloneSpot,
+              maskImage: aloneSpot,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+            }}
+          />
 
-      {/* 3 — la sagoma del logo, bianca: risalta per contrasto sull'alone */}
-      <div
-        className="absolute inset-0 grid place-items-center transition-opacity duration-500 ease-out"
-        style={{
-          opacity: visibile ? 1 : 0,
-          WebkitMaskImage: logoSpot,
-          maskImage: logoSpot,
-          WebkitMaskRepeat: 'no-repeat',
-          maskRepeat: 'no-repeat',
-        }}
-      >
-        <div
-          className={`${size} aspect-square`}
-          style={{
-            backgroundColor: '#FFFFFF',
-            mixBlendMode: 'screen',
-            WebkitMaskImage: `url(${LOGO})`,
-            maskImage: `url(${LOGO})`,
-            WebkitMaskSize: 'contain',
-            maskSize: 'contain',
-            WebkitMaskPosition: 'center',
-            maskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
-            maskRepeat: 'no-repeat',
-          }}
-        />
-      </div>
+          {/* 3 — la sagoma del logo, bianca: risalta per contrasto sull'alone */}
+          <div
+            className="absolute inset-0 grid place-items-center transition-opacity duration-700 ease-out"
+            style={{
+              opacity: acceso ? 1 : 0,
+              WebkitMaskImage: logoSpot,
+              maskImage: logoSpot,
+              WebkitMaskRepeat: 'no-repeat',
+              maskRepeat: 'no-repeat',
+            }}
+          >
+            <div
+              className={`${size} aspect-square`}
+              style={{
+                backgroundColor: '#FFFFFF',
+                mixBlendMode: 'screen',
+                WebkitMaskImage: `url(${LOGO})`,
+                maskImage: `url(${LOGO})`,
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+                WebkitMaskPosition: 'center',
+                maskPosition: 'center',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+              }}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { BRAND } from '../theme';
+import GlassShaderGL from './GlassShaderGL';
 
 const ShaderStack = lazy(() => import('./ShaderStack'));
+
+type Modo = 'css' | 'webgl' | 'webgpu';
 
 /**
  * Fondale di scorta: stesse tinte dello shader vero, ma mosse con CSS
@@ -30,42 +33,51 @@ function Fallback() {
 }
 
 /**
- * Sfondo animato dell'hero.
+ * Sfondo animato dell'hero, scelto in tre livelli a seconda di cosa il
+ * dispositivo può fare:
  *
- * ChromaFlow è la parte che reagisce al puntatore: dipinge scie di luce che
- * seguono il mouse con inerzia, e i quattro colori direzionali usano i due blu
- * del logo, così il verso del movimento cambia la tinta. FlutedGlass le spezza
- * in lamelle di vetro rigato, Swirl fa da base, FilmGrain toglie il banding.
+ *   webgpu — lo shader "premium" (pacchetto `shaders`, ShaderStack): vetro
+ *            rigato con scie che seguono il mouse. Solo dove c'è WebGPU,
+ *            cioè desktop moderni (e iPhone recenti in https). Pesa ~720KB.
+ *   webgl  — GlassShaderGL: lo STESSO vetro argentato animato, ma in WebGL.
+ *            Gira su ogni telefono e anche su http, dove WebGPU è spento.
+ *            È questo che ora il telefono vede al posto delle righe piatte.
+ *   css    — il fondale a gradienti qui sotto: ultima rete di sicurezza per
+ *            i rari browser senza WebGL, o con "meno animazioni".
  *
- * Gira su WebGPU e pesa parecchio, quindi lo carichiamo solo dopo che la
- * pagina è pronta e solo dove può girare davvero. Nel frattempo — e su
- * Firefox, Safari datati o quando l'utente chiede meno animazioni — resta il
- * fondale CSS qui sopra, che ha le stesse tinte.
+ * WebGPU esiste solo in contesto sicuro: se `navigator.gpu` non c'è (telefono
+ * su http, browser datati) saltiamo dritti a WebGL, senza nemmeno provarci.
  */
 export default function ShaderBackground() {
-  const [useShader, setUseShader] = useState(false);
+  // partiamo già da WebGL, così sul telefono non compare nemmeno per un attimo
+  // lo sfondo CSS a righe prima che l'effetto scelga il livello giusto
+  const [modo, setModo] = useState<Modo>(() => {
+    if (typeof window === 'undefined') return 'css';
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 'css';
+    return 'webgl';
+  });
 
   useEffect(() => {
     let alive = true;
 
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return;
+    if (reduced) { setModo('css'); return; }
 
+    const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+    if (!gpu) { setModo('webgl'); return; } // niente WebGPU qui → subito WebGL
+
+    // c'è l'oggetto gpu: mostriamo WebGL intanto, e passiamo a WebGPU solo se
+    // un adapter reale risponde (così non resta mai lo sfondo piatto)
+    setModo('webgl');
     const probe = async () => {
       try {
-        const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-        if (!gpu) return;
         const adapter = await gpu.requestAdapter();
-        if (alive && adapter) setUseShader(true);
-      } catch {
-        /* niente shader: resta il fondale di scorta */
-      }
+        if (alive && adapter) setModo('webgpu');
+      } catch { /* resta WebGL */ }
     };
-
-    // aspettiamo che il thread principale sia libero: prima il contenuto
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number })
       .requestIdleCallback;
-    const id = idle ? idle(() => void probe()) : window.setTimeout(() => void probe(), 600);
+    const id = idle ? idle(() => void probe()) : window.setTimeout(() => void probe(), 300);
 
     return () => {
       alive = false;
@@ -76,7 +88,8 @@ export default function ShaderBackground() {
   return (
     <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden" aria-hidden="true">
       <Fallback />
-      {useShader && (
+      {modo === 'webgl' && <GlassShaderGL />}
+      {modo === 'webgpu' && (
         <Suspense fallback={null}>
           <div className="absolute inset-0">
             <ShaderStack />
