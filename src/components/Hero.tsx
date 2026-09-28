@@ -1,98 +1,261 @@
-import { useState } from 'react';
-import ShaderBackground from './ShaderBackground';
-import LogoWatermark from './LogoWatermark';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import Navbar from './Navbar';
 import RollButton from './TextRoll';
-import HeadlineToolbar, { INITIAL_STYLE, styleBadges, type HeadlineStyle } from './HeadlineToolbar';
-import { VISIBLE } from '../data/projects';
-import { BRAND } from '../theme';
+import { useProgetti, type UIProject } from '../hooks/useProgetti';
+import { asset } from '../lib/asset';
 
-const SIZES: Record<HeadlineStyle['level'], string> = {
-  'Heading 1': 'clamp(2.4rem,8.4vw,5.6rem)',
-  'Heading 2': 'clamp(2rem,6.4vw,4.2rem)',
-  'Heading 3': 'clamp(1.6rem,4.8vw,3rem)',
-};
+/** Dominio pulito da un url, o null se il progetto non è pubblico. */
+function hostOf(url?: string): string | null {
+  if (!url) return null;
+  try { return new URL(url).host.replace(/^www\./, ''); } catch { return null; }
+}
+
+function usePrefersReducedMotion() {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!m) return;
+    const sync = () => setReduce(m.matches);
+    sync();
+    m.addEventListener('change', sync);
+    return () => m.removeEventListener('change', sync);
+  }, []);
+  return reduce;
+}
+
+/**
+ * Anteprima di un progetto. Se lo screenshot non c'è (o non carica), invece
+ * dell'icona immagine rotta mostra un fondale coerente coi colori del marchio,
+ * con le iniziali del nome.
+ */
+function Shot({ p, className = '', imgClass = '' }: { p: UIProject; className?: string; imgClass?: string }) {
+  const [ok, setOk] = useState(true);
+  const iniz = p.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  return (
+    <div className={`relative overflow-hidden bg-[#0e1424] ${className}`}>
+      {ok ? (
+        <img
+          src={asset(`/work/${p.slug}.jpg`)}
+          alt={`Anteprima del sito realizzato per ${p.name}`}
+          loading="lazy"
+          onError={() => setOk(false)}
+          className={`h-full w-full object-cover object-top ${imgClass}`}
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center bg-gradient-to-br from-[#002050] to-[#0068F8]">
+          <span className="text-[26px] font-semibold tracking-tight text-white/90">{iniz}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Hero() {
-  const [style, setStyle] = useState<HeadlineStyle>(INITIAL_STYLE);
-  const badges = styleBadges(style);
+  const { projects, cats } = useProgetti();
+  const catLabel = (k: string) => cats.find((c) => c.key === k)?.label ?? k;
+  const reduce = usePrefersReducedMotion();
+
+  const n = projects.length;
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const stripRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const go = (i: number) => { if (n) setActive(((i % n) + n) % n); };
+
+  // porta la card attiva al centro della striscia
+  useEffect(() => {
+    const el = cardRefs.current[active];
+    el?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }, [active, reduce, n]);
+
+  // avanzamento automatico, lento e in loop — in pausa su hover/focus
+  useEffect(() => {
+    if (reduce || paused || n < 2) return;
+    const id = window.setInterval(() => setActive((a) => (a + 1) % n), 3800);
+    return () => window.clearInterval(id);
+  }, [reduce, paused, n]);
+
+  const stars = useMemo(
+    () => Array.from({ length: 64 }, () => ({
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      s: Math.random() * 1.6 + 0.5,
+      o: Math.random() * 0.5 + 0.18,
+      tw: Math.random() * 4 + 3.5,
+      dl: Math.random() * 5,
+    })),
+    []
+  );
+
+  const cur: UIProject | undefined = projects[active];
+  const host = hostOf(cur?.url);
 
   return (
-    <section id="top" className="group relative min-h-screen flex flex-col bg-[#EFEFEF] overflow-hidden">
-      <ShaderBackground />
-      <LogoWatermark />
+    <section
+      id="top"
+      className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0B1220] text-white"
+    >
+      {/* sfondo: profondità navy + stelle */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(60% 55% at 22% 18%, rgba(0,104,248,0.18), transparent 60%),' +
+              'radial-gradient(55% 50% at 85% 30%, rgba(0,32,80,0.55), transparent 65%),' +
+              'radial-gradient(80% 60% at 50% 115%, rgba(0,104,248,0.16), transparent 60%)',
+          }}
+        />
+        {stars.map((st, i) => (
+          <span
+            key={i}
+            className="hero-star absolute rounded-full bg-white"
+            style={{
+              top: `${st.top}%`, left: `${st.left}%`,
+              width: st.s, height: st.s,
+              ['--o' as string]: st.o, ['--tw' as string]: `${st.tw}s`, ['--dl' as string]: `${st.dl}s`,
+              opacity: st.o,
+            }}
+          />
+        ))}
+      </div>
 
       <Navbar />
 
-      <div className="relative z-20 flex flex-1 items-center justify-center">
-        <div className="mx-auto w-full max-w-[1100px] px-5 sm:px-8 lg:px-12 py-10 text-center">
-          <p className="mb-6 sm:mb-8 text-[13px] sm:text-[14px] tracking-wide text-gray-700">
-            Liao Studio — sviluppo web, Bologna
-          </p>
+      {/* testo + CTA */}
+      <div className="relative z-10 mx-auto w-full max-w-[1100px] shrink-0 px-5 pt-5 text-center sm:px-8 sm:pt-6 lg:px-12">
+        <p className="mb-2.5 text-[12.5px] tracking-wide text-white/55 sm:text-[13.5px]">
+          Liao Studio — sviluppo web, Bologna
+        </p>
+        <h1 className="font-medium leading-[1.06] tracking-[-0.03em] text-white"
+          style={{ fontSize: 'clamp(1.8rem,4.4vw,3.2rem)' }}>
+          Costruiamo siti <span className="text-[#4D9BFF]">che portano clienti.</span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-[54ch] text-[13.5px] leading-[1.5] text-white/60 sm:text-[15px]">
+          Ogni sito qui sotto l'abbiamo fatto noi, ed è online davvero. Scegline uno
+          e guardalo aprirsi — poi immagina il tuo.
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-4">
+          <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
+        </div>
+      </div>
 
-          <h1
-            className="font-medium leading-[1.05] tracking-[-0.03em] text-[#0B1220]"
-            style={{ fontSize: SIZES[style.level] }}
-          >
-            Costruiamo siti
-            <br className="hidden sm:block" />
-            <span className="sm:hidden"> </span>
-            {/* seconda riga: presentata come testo selezionato, la toolbar la ristila */}
-            <span className="relative inline-block">
-              <span
-                className="relative z-10 box-decoration-clone"
-                style={{
-                  color: style.color,
-                  fontWeight: style.bold ? 700 : 500,
-                  fontStyle: style.italic ? 'italic' : 'normal',
-                  textDecoration: style.underline ? 'underline' : 'none',
-                  textUnderlineOffset: '0.12em',
-                  transition: 'color .35s cubic-bezier(.25,.1,.25,1)',
-                }}
-              >
-                che portano clienti.
+      {/* palco: browser + carosello */}
+      <div className="relative z-10 flex flex-1 flex-col justify-end">
+        {/* la grande finestra browser */}
+        <div className="mx-auto w-full max-w-[880px] px-4 pt-4 sm:px-6">
+          <div className="overflow-hidden rounded-2xl bg-[#0e1424] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] ring-1 ring-white/10">
+            {/* barra del browser */}
+            <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-3.5 py-2.5">
+              <span className="flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
               </span>
-
-              {/* etichette di stile, come in un editor */}
-              <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 flex flex-wrap justify-center gap-1">
-                {badges.map((b) => (
-                  <span key={b}
-                    className="rounded-[3px] bg-[#0B1220] px-1.5 py-[2px] text-[9px] sm:text-[10px] font-medium leading-none tracking-wide text-white">
-                    {b}
-                  </span>
-                ))}
+              <div className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-black/25 px-2.5 py-1 text-[11.5px] text-white/60">
+                <Lock size={11} className="shrink-0 text-white/40" />
+                <span className="truncate">{host ?? 'anteprima del progetto'}</span>
+              </div>
+              <span className="hidden shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-[11px] text-white/55 sm:block">
+                {cur ? catLabel(cur.cat) : ''}
               </span>
-            </span>
-          </h1>
+            </div>
 
-          <p className="mx-auto mt-7 sm:mt-9 max-w-[52ch] text-[15px] sm:text-[17px] leading-[1.6] text-gray-600">
-            Siti su misura per ristoranti, pizzerie, saloni, palestre e imprese
-            di Bologna e provincia. Nessun template, nessun abbonamento nascosto.
-          </p>
-
-          <div className={`mt-7 sm:mt-8 flex justify-center ${badges.length ? 'pt-2' : ''}`}>
-            <div className="flex flex-col items-center gap-2">
-              <HeadlineToolbar value={style} onChange={setStyle} />
-              <p className="text-[11px] text-gray-500">Provala: cambia il titolo come preferisci.</p>
+            {/* corpo: lo screenshot reale del sito */}
+            <div className="relative aspect-[16/10] max-h-[38vh] w-full">
+              {cur && (
+                <Shot
+                  key={cur.slug}
+                  p={cur}
+                  className="hero-shot-in absolute inset-0 h-full w-full"
+                />
+              )}
+              {/* titolo + azione */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/55 to-transparent p-3 sm:p-4">
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold text-white sm:text-[17px]" aria-live="polite">
+                    {cur?.name}
+                  </p>
+                  <p className="truncate text-[12px] text-white/70">{cur?.loc}</p>
+                </div>
+                {cur?.url && (
+                  <a
+                    href={cur.url} target="_blank" rel="noopener"
+                    className="pointer-events-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-[12.5px] font-medium text-[#0B1220] transition-transform duration-200 hover:-translate-y-0.5"
+                  >
+                    Visita il sito <ArrowUpRight size={14} />
+                  </a>
+                )}
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="mt-9 sm:mt-11 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
-            <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
+        {/* carosello */}
+        <div
+          className="relative z-10 mt-3 pb-4 sm:mt-4 sm:pb-5"
+          onPointerEnter={() => setPaused(true)}
+          onPointerLeave={() => setPaused(false)}
+          onFocusCapture={() => setPaused(true)}
+          onBlurCapture={() => setPaused(false)}
+        >
+          <div
+            ref={stripRef}
+            role="listbox"
+            aria-label="I nostri lavori — scegline uno da guardare"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') { e.preventDefault(); go(active + 1); cardRefs.current[(active + 1) % n]?.focus(); }
+              if (e.key === 'ArrowLeft') { e.preventDefault(); go(active - 1); cardRefs.current[(active - 1 + n) % n]?.focus(); }
+            }}
+            className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-[calc(50%-84px)] outline-none"
+          >
+            {projects.map((p, i) => {
+              const on = i === active;
+              return (
+                <button
+                  key={p.slug}
+                  ref={(el) => { cardRefs.current[i] = el; }}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  aria-label={`${p.name} — ${catLabel(p.cat)}`}
+                  onClick={() => go(i)}
+                  className="group relative shrink-0 snap-center rounded-xl outline-none transition-transform duration-300"
+                  style={{ width: 168, transform: on ? 'translateY(-6px)' : 'none' }}
+                >
+                  <Shot
+                    p={p}
+                    className={`aspect-[168/108] w-full rounded-xl ring-1 transition-all duration-300 ${
+                      on
+                        ? 'ring-2 ring-[#4D9BFF] shadow-[0_16px_40px_-16px_rgba(0,104,248,0.7)]'
+                        : 'ring-white/10 opacity-55 group-hover:opacity-90 group-focus-visible:opacity-100 group-focus-visible:ring-white/40'
+                    }`}
+                  />
+                  <span className={`mt-2 block truncate text-center text-[11.5px] transition-colors duration-300 ${on ? 'text-white' : 'text-white/45 group-hover:text-white/75'}`}>
+                    {p.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-            <a href="#lavori"
-              className="group flex items-center gap-2.5 rounded-[4px] bg-white px-3 py-2 shadow-[0_2px_8px_rgba(0,0,0,0.08)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-shadow duration-500">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"
-                className="w-5 h-5 sm:w-6 sm:h-6 fill-current" style={{ color: BRAND.blue }} aria-hidden="true">
-                <path d="m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z" />
-              </svg>
-              <span className="text-[13px] sm:text-[14px] font-medium text-gray-900">
-                {VISIBLE.length} siti online
-              </span>
-              <span className="rounded bg-[#0B1220] px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] text-white">
-                Portfolio
-              </span>
-            </a>
+          {/* frecce + contatore */}
+          <div className="mx-auto mt-2.5 flex max-w-[900px] items-center justify-center gap-4 px-4">
+            <button type="button" aria-label="Progetto precedente" onClick={() => go(active - 1)}
+              className="grid h-8 w-8 place-items-center rounded-full ring-1 ring-white/15 text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-mono text-[12px] tabular-nums text-white/55">
+              {n ? String(active + 1).padStart(2, '0') : '00'} / {String(n).padStart(2, '0')} · {n} siti online
+            </span>
+            <button type="button" aria-label="Progetto successivo" onClick={() => go(active + 1)}
+              className="grid h-8 w-8 place-items-center rounded-full ring-1 ring-white/15 text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       </div>

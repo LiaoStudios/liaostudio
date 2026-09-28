@@ -5,7 +5,7 @@ import { asset } from '../lib/asset';
 
 const EASE = 'ease-[cubic-bezier(0.25,0.1,0.25,1)]';
 const LINKS = [
-  ['#lavori', 'Lavori'],
+  ['#top', 'Lavori'],
   ['#servizi', 'Servizi'],
   ['#prezzi', 'Prezzi'],
   ['#metodo', 'Metodo'],

@@ -3,7 +3,7 @@ import { asset } from '../lib/asset';
 import { VISIBLE } from '../data/projects';
 
 const LINKS = [
-  ['#lavori', 'Lavori'],
+  ['#top', 'Lavori'],
   ['#servizi', 'Servizi'],
   ['#prezzi', 'Prezzi'],
   ['#metodo', 'Metodo'],

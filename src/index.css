@@ -6,6 +6,30 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: #EFEFEF; }
 ::selection { background: #0068F8; color: #fff; }
 
+/* ---- Hero interattiva ---- */
+
+/* striscia del carosello: niente barra di scorrimento visibile */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* il contenuto del browser sfuma quando cambi progetto */
+@keyframes heroShotIn {
+  from { opacity: 0; transform: scale(1.015); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.hero-shot-in { animation: heroShotIn .45s cubic-bezier(.25,.1,.25,1) both; }
+
+/* stelle di sfondo che pulsano piano */
+@keyframes heroTwinkle {
+  0%, 100% { opacity: var(--o, .4); }
+  50%      { opacity: calc(var(--o, .4) * .35); }
+}
+.hero-star { animation: heroTwinkle var(--tw, 5s) ease-in-out infinite; animation-delay: var(--dl, 0s); }
+@media (prefers-reduced-motion: reduce) {
+  .hero-shot-in { animation: none; }
+  .hero-star { animation: none; }
+}
+
 /* vetro liquido — usato dalla toolbar dell'hero */
 .liquid-glass {
   background: rgba(255, 255, 255, 0.01);
