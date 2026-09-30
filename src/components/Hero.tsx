@@ -71,14 +71,14 @@ function Shot({ p, className = '' }: { p: UIProject; className?: string }) {
  * le card laterali, ruotate verso il centro, si vedono di scorcio e il
  * pannello si legge come un arco che ti avvolge.
  */
-const CARD_W = 184;
-const CARD_H = 115;              // 184×115 = 16:10, la proporzione esatta degli screenshot
-const RADIUS = 820;
-const CULL = 56;                 // oltre questo angolo la card è nascosta (dietro)
+const CARD_W = 200;
+const CARD_H = 300;              // card verticali, come nel riferimento (ritaglio dall'alto dello screenshot)
+const RADIUS = 900;
+const PERSPECTIVE = 960;         // camera vicina: le card ai lati diventano più grandi e si inclinano
+const CULL = 68;                 // oltre questo angolo la card è nascosta (dietro)
 const FADE = 10;                 // gradi finali in cui la card sfuma invece di sparire di colpo
 const SPIN = 5.2;                // gradi al secondo, lenta
-const PERSPECTIVE = 1500;        // camera più lontana del centro del cilindro: le card laterali si vedono di scorcio
-const RING_H = 190;
+const RING_H = 360;
 
 export default function Hero() {
   const { projects, cats } = useProgetti();
@@ -211,76 +211,28 @@ export default function Hero() {
 
       <Navbar />
 
-      {/* palco: copy a sinistra + finestra che mostra il sito INTERO */}
-      <div className="hero-stage relative z-20 mx-auto flex w-full max-w-[1320px] flex-1 flex-col items-center justify-center gap-5 px-5 pb-2 pt-3 sm:px-8 lg:flex-row lg:justify-between lg:gap-10 lg:px-12">
-        <div className="w-full text-center lg:w-[330px] lg:shrink-0 lg:text-left">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[12px] text-white/70 backdrop-blur-sm">
-            <Sparkles size={13} className="text-[#4D9BFF]" />
-            {n} siti realizzati, tutti online
-          </div>
-          <h1 className="font-medium leading-[1.05] tracking-[-0.03em] text-white" style={{ fontSize: 'clamp(1.8rem,3.6vw,3rem)' }}>
-            Costruiamo siti <span className="text-[#4D9BFF]">che portano clienti.</span>
-          </h1>
-          <p className="mx-auto mt-3 max-w-[46ch] text-[13.5px] leading-[1.5] text-white/60 sm:text-[15px] lg:mx-0">
-            Scegli un lavoro dal pannello in basso: si apre qui, intero, com'è online davvero.
-          </p>
-          <div className="mt-4 flex items-center justify-center lg:justify-start">
-            <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
-          </div>
+      {/* copy centrata, come nel riferimento */}
+      <div className="relative z-20 mx-auto flex w-full max-w-[920px] flex-col items-center px-5 pb-6 pt-8 text-center sm:px-8 sm:pt-12">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-3.5 py-1.5 text-[12.5px] text-white/75 backdrop-blur-sm">
+          <Sparkles size={14} className="text-[#4D9BFF]" />
+          {n} siti realizzati, tutti online
         </div>
-
-        <div className="flex w-full min-w-0 flex-1 flex-col items-center lg:items-end">
-          {/* la finestra browser: mostra lo screenshot per intero, senza ritagli */}
-          <div className="hero-browser overflow-hidden rounded-2xl bg-[#0e1424] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
-            <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.03] px-3.5 py-2.5">
-              <span className="flex gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-              </span>
-              <div className="ml-2 flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-black/25 px-2.5 py-1 text-[11.5px] text-white/60">
-                <Lock size={11} className="shrink-0 text-white/40" />
-                <span className="truncate">{host ?? cur?.name ?? 'anteprima del progetto'}</span>
-              </div>
-              {cur?.url && (
-                <a href={cur.url} target="_blank" rel="noopener"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#0B1220] transition-transform duration-200 hover:-translate-y-px">
-                  Visita <ArrowUpRight size={12} />
-                </a>
-              )}
-            </div>
-            {/* 16:10 = proporzione esatta degli screenshot: nessuna parte tagliata */}
-            <div className="relative aspect-[16/10] w-full">
-              {cur && <Shot key={cur.slug} p={cur} className="hero-shot-in absolute inset-0 h-full w-full" />}
-            </div>
-          </div>
-
-          {/* frecce + nome del sito */}
-          <div className="hero-browser mt-3 flex items-center justify-between gap-3">
-            <button type="button" aria-label="Progetto precedente" onClick={prev}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/70 ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-white">
-              <ChevronLeft size={16} />
-            </button>
-            <div className="min-w-0 text-center">
-              <p className="truncate text-[14px] font-semibold text-white" aria-live="polite">{cur?.name}</p>
-              <p className="truncate font-mono text-[11.5px] tabular-nums text-white/50">
-                {n ? String(active + 1).padStart(2, '0') : '00'} / {String(n).padStart(2, '0')}
-                {cur ? ` · ${catLabel(cur.cat)} · ${cur.loc}` : ''}
-              </p>
-            </div>
-            <button type="button" aria-label="Progetto successivo" onClick={next}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-white/70 ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-white">
-              <ChevronRight size={16} />
-            </button>
-          </div>
+        <h1 className="font-semibold leading-[1.02] tracking-[-0.035em] text-white" style={{ fontSize: 'clamp(2.1rem,5.4vw,4.3rem)' }}>
+          Costruiamo siti <span className="text-[#4D9BFF]">che portano clienti.</span>
+        </h1>
+        <p className="mx-auto mt-4 max-w-[52ch] text-[14px] leading-[1.55] text-white/60 sm:text-[16px]">
+          Scegli un lavoro dal pannello qui sotto: si apre in una finestra, intero, com'è online davvero.
+        </p>
+        <div className="mt-6">
+          <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
         </div>
       </div>
 
-      {/* in fondo: il pannello curvo (desktop) o la striscia touch (mobile) */}
+      {/* il pannello curvo (desktop) o la striscia touch (mobile) */}
       {!narrow ? (
         <div
           className="relative z-10 shrink-0"
-          style={{ height: RING_H, perspective: PERSPECTIVE, perspectiveOrigin: '50% 50%' }}
+          style={{ height: RING_H, perspective: PERSPECTIVE, perspectiveOrigin: '50% 30%' }}
           onPointerEnter={() => setPaused(true)}
           onPointerLeave={() => setPaused(false)}
           onFocusCapture={() => setPaused(true)}
@@ -290,7 +242,7 @@ export default function Hero() {
             if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
           }}
         >
-          <div className="absolute inset-0">
+          <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
             <div className="absolute left-1/2" style={{ top: '50%', transformStyle: 'preserve-3d', width: 0, height: 0 }}>
               {projects.map((p, i) => (
                 <button
@@ -300,16 +252,16 @@ export default function Hero() {
                   aria-label={`${p.name} — ${catLabel(p.cat)}`}
                   aria-current={i === active}
                   onClick={() => { setActiveSafe(i); focusCard(i); }}
-                  className="absolute rounded-xl outline-none ring-1 ring-white/10 focus-visible:ring-2 focus-visible:ring-[#4D9BFF]"
+                  className="absolute rounded-2xl outline-none ring-1 ring-white/10 focus-visible:ring-2 focus-visible:ring-[#4D9BFF]"
                   style={{
                     width: CARD_W, height: CARD_H, left: -CARD_W / 2, top: -CARD_H / 2,
                     backfaceVisibility: 'hidden', willChange: 'transform',
-                    boxShadow: '0 22px 40px rgba(0,0,0,.55), 0 3px 8px rgba(0,0,0,.45)',
+                    boxShadow: '0 30px 60px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45)',
                   }}
                 >
-                  <Shot p={p} className="h-full w-full rounded-xl" />
+                  <Shot p={p} className="h-full w-full rounded-2xl" />
                   {i === active && (
-                    <span className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-[#4D9BFF]" />
+                    <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-[#4D9BFF]" />
                   )}
                 </button>
               ))}
@@ -341,6 +293,53 @@ export default function Hero() {
           </div>
         </div>
       )}
+
+      {/* la finestra browser: grande, centrata, sovrapposta al pannello; mostra lo screenshot INTERO */}
+      <div className="relative z-30 mx-auto w-full px-4 pb-10 max-md:mt-2 md:-mt-[120px] md:px-8" style={{ maxWidth: 1180 }}>
+        <div className="overflow-hidden rounded-2xl bg-[#0e1424]/85 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.9)] ring-1 ring-white/12 backdrop-blur-md">
+          <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.04] px-3.5 py-2.5">
+            <span className="flex w-16 gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+            </span>
+            <div className="mx-auto flex min-w-0 max-w-[460px] flex-1 items-center justify-center gap-1.5 rounded-md bg-black/25 px-3 py-1 text-[12px] text-white/65">
+              <Lock size={11} className="shrink-0 text-white/40" />
+              <span className="truncate">{host ?? cur?.name ?? 'anteprima del progetto'}</span>
+            </div>
+            <span className="flex w-16 justify-end">
+              {cur?.url && (
+                <a href={cur.url} target="_blank" rel="noopener"
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#0B1220] transition-transform duration-200 hover:-translate-y-px">
+                  Visita <ArrowUpRight size={12} />
+                </a>
+              )}
+            </span>
+          </div>
+          {/* 16:10 = proporzione esatta degli screenshot: nessuna parte tagliata */}
+          <div className="relative aspect-[16/10] w-full">
+            {cur && <Shot key={cur.slug} p={cur} className="hero-shot-in absolute inset-0 h-full w-full" />}
+          </div>
+        </div>
+
+        <div className="mx-auto mt-4 flex max-w-[520px] items-center justify-between gap-3">
+          <button type="button" aria-label="Progetto precedente" onClick={prev}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/70 ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-white">
+            <ChevronLeft size={16} />
+          </button>
+          <div className="min-w-0 text-center">
+            <p className="truncate text-[15px] font-semibold text-white" aria-live="polite">{cur?.name}</p>
+            <p className="truncate font-mono text-[11.5px] tabular-nums text-white/50">
+              {n ? String(active + 1).padStart(2, '0') : '00'} / {String(n).padStart(2, '0')}
+              {cur ? ` · ${catLabel(cur.cat)} · ${cur.loc}` : ''}
+            </p>
+          </div>
+          <button type="button" aria-label="Progetto successivo" onClick={next}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/70 ring-1 ring-white/15 transition-colors hover:bg-white/10 hover:text-white">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
