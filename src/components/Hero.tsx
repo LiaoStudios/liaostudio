@@ -24,7 +24,7 @@ function usePrefersReducedMotion() {
   return reduce;
 }
 
-/** true sotto i 760px: lì il pannello curvo lascia il posto a una striscia touch. */
+/** true sotto i 760px: stesso pannello curvo, solo più piccolo. */
 function useNarrow() {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
@@ -38,15 +38,15 @@ function useNarrow() {
 }
 
 /** Anteprima con fondale di scorta coi colori del marchio se lo screenshot non carica. */
-function Shot({ p, className = '' }: { p: UIProject; className?: string }) {
+function Shot({ p, className = '', mobile = false }: { p: UIProject; className?: string; mobile?: boolean }) {
   const [ok, setOk] = useState(true);
   const iniz = p.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return (
     <div className={`relative overflow-hidden bg-[#0e1424] ${className}`}>
       {ok ? (
         <img
-          src={asset(`/work/${p.slug}.jpg`)}
-          alt={`Anteprima del sito realizzato per ${p.name}`}
+          src={asset(`/work/${p.slug}${mobile ? '-m' : ''}.jpg`)}
+          alt={`Anteprima ${mobile ? 'mobile ' : ''}del sito realizzato per ${p.name}`}
           onError={() => setOk(false)}
           className="block h-full w-full object-cover object-top"
         />
@@ -71,20 +71,19 @@ function Shot({ p, className = '' }: { p: UIProject; className?: string }) {
  * le card laterali, ruotate verso il centro, si vedono di scorcio e il
  * pannello si legge come un arco che ti avvolge.
  */
-const CARD_W = 200;
-const CARD_H = 300;              // card verticali, come nel riferimento (ritaglio dall'alto dello screenshot)
-const RADIUS = 900;
-const PERSPECTIVE = 960;         // camera vicina: le card ai lati diventano più grandi e si inclinano
-const CULL = 68;                 // oltre questo angolo la card è nascosta (dietro)
+/* Le card mostrano la versione MOBILE dei siti (screenshot 390×844, proporzione 0,462):
+   rettangoli allungati come un telefono. La finestra sotto mostra la versione desktop. */
+const DESK = { w: 176, h: 380, radius: 900, persp: 960, cull: 68, ringH: 430 };
+const MOB  = { w: 112, h: 242, radius: 470, persp: 540, cull: 72, ringH: 300 };
 const FADE = 10;                 // gradi finali in cui la card sfuma invece di sparire di colpo
 const SPIN = 5.2;                // gradi al secondo, lenta
-const RING_H = 360;
 
 export default function Hero() {
   const { projects, cats } = useProgetti();
   const catLabel = (k: string) => cats.find((c) => c.key === k)?.label ?? k;
   const reduce = usePrefersReducedMotion();
   const narrow = useNarrow();
+  const G = narrow ? MOB : DESK;
 
   const n = projects.length;
   const step = n ? 360 / n : 0;
@@ -96,7 +95,7 @@ export default function Hero() {
 
   const setActiveSafe = (i: number) => { if (n) setActive(((i % n) + n) % n); };
 
-  /* ---------- PANNELLO CURVO (desktop/tablet) ---------- */
+  /* ---------- PANNELLO CURVO ---------- */
   const cardEls = useRef<(HTMLButtonElement | null)[]>([]);
   const phaseRef = useRef(0);                    // rotazione corrente (gradi)
   const targetRef = useRef<number | null>(null); // meta quando clicchi/freccia
@@ -115,7 +114,7 @@ export default function Hero() {
   };
 
   useEffect(() => {
-    if (narrow || !n) return;
+    if (!n) return;
     let raf = 0;
     let last = performance.now();
 
@@ -139,15 +138,15 @@ export default function Hero() {
         let a = i * step + phase;
         a = ((a % 360) + 540) % 360 - 180; // angolo con segno, -180..180
         const abs = Math.abs(a);
-        if (abs > CULL) { el.style.visibility = 'hidden'; continue; }
+        if (abs > G.cull) { el.style.visibility = 'hidden'; continue; }
         el.style.visibility = 'visible';
         const r = (a * Math.PI) / 180;
         const c = Math.cos(r);
         el.style.transform =
-          `translate3d(${(RADIUS * Math.sin(r)).toFixed(2)}px,0,${(RADIUS * (1 - c)).toFixed(2)}px) rotateY(${(-a).toFixed(2)}deg)`;
+          `translate3d(${(G.radius * Math.sin(r)).toFixed(2)}px,0,${(G.radius * (1 - c)).toFixed(2)}px) rotateY(${(-a).toFixed(2)}deg)`;
         // ai lati leggermente più scure, e in dissolvenza verso il bordo del taglio
         el.style.filter = `brightness(${(0.45 + 0.55 * c).toFixed(3)})`;
-        el.style.opacity = String(Math.min(1, (CULL - abs) / FADE).toFixed(3));
+        el.style.opacity = String(Math.min(1, (G.cull - abs) / FADE).toFixed(3));
 
       }
 
@@ -162,19 +161,21 @@ export default function Hero() {
     const onVis = () => { last = performance.now(); };
     document.addEventListener('visibilitychange', onVis);
     return () => { cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', onVis); };
-  }, [narrow, n, step]);
+  }, [G, n, step]);
 
-  /* ---------- STRISCIA (mobile) ---------- */
-  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  useEffect(() => {
-    if (!narrow) return;
-    thumbRefs.current[active]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
-  }, [active, narrow, reduce, n]);
-  useEffect(() => {
-    if (!narrow || reduce || paused || n < 2) return;
-    const id = window.setInterval(() => setActive((a) => (a + 1) % n), 3800);
-    return () => window.clearInterval(id);
-  }, [narrow, reduce, paused, n]);
+  /* trascinamento orizzontale (dito o mouse): ruota il pannello */
+  const drag = useRef<{ x: number; moved: boolean } | null>(null);
+  const onDown = (e: React.PointerEvent) => { drag.current = { x: e.clientX, moved: false }; };
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || (e.pointerType === 'mouse' && e.buttons === 0)) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved && Math.abs(dx) < 6) return;
+    d.moved = true; d.x = e.clientX;
+    targetRef.current = null;
+    phaseRef.current += (dx / G.radius) * (180 / Math.PI);
+  };
+  const onUp = () => { window.setTimeout(() => { drag.current = null; }, 0); };
 
   const stars = useMemo(
     () => Array.from({ length: 66 }, () => ({
@@ -188,8 +189,8 @@ export default function Hero() {
   const cur: UIProject | undefined = projects[active];
   const host = hostOf(cur?.url);
 
-  const prev = () => { const i = (active - 1 + n) % n; setActiveSafe(i); if (!narrow) focusCard(i); };
-  const next = () => { const i = (active + 1) % n; setActiveSafe(i); if (!narrow) focusCard(i); };
+  const prev = () => { const i = (active - 1 + n) % n; setActiveSafe(i); focusCard(i); };
+  const next = () => { const i = (active + 1) % n; setActiveSafe(i); focusCard(i); };
 
   return (
     <section id="top" className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0B1220] text-white">
@@ -221,7 +222,7 @@ export default function Hero() {
           Costruiamo siti <span className="text-[#4D9BFF]">che portano clienti.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-[52ch] text-[14px] leading-[1.55] text-white/60 sm:text-[16px]">
-          Scegli un lavoro dal pannello qui sotto: si apre in una finestra, intero, com'è online davvero.
+          Scegli un lavoro dal pannello: la versione mobile è nelle card, quella desktop si apre qui sotto, intera.
         </p>
         <div className="mt-6">
           <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
@@ -229,73 +230,49 @@ export default function Hero() {
       </div>
 
       {/* il pannello curvo (desktop) o la striscia touch (mobile) */}
-      {!narrow ? (
-        <div
-          className="relative z-10 shrink-0"
-          style={{ height: RING_H, perspective: PERSPECTIVE, perspectiveOrigin: '50% 30%' }}
-          onPointerEnter={() => setPaused(true)}
-          onPointerLeave={() => setPaused(false)}
-          onFocusCapture={() => setPaused(true)}
-          onBlurCapture={() => setPaused(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-            if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
-          }}
-        >
-          <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
-            <div className="absolute left-1/2" style={{ top: '50%', transformStyle: 'preserve-3d', width: 0, height: 0 }}>
-              {projects.map((p, i) => (
-                <button
-                  key={p.slug}
-                  ref={(el) => { cardEls.current[i] = el; }}
-                  type="button"
-                  aria-label={`${p.name} — ${catLabel(p.cat)}`}
-                  aria-current={i === active}
-                  onClick={() => { setActiveSafe(i); focusCard(i); }}
-                  className="absolute rounded-2xl outline-none ring-1 ring-white/10 focus-visible:ring-2 focus-visible:ring-[#4D9BFF]"
-                  style={{
-                    width: CARD_W, height: CARD_H, left: -CARD_W / 2, top: -CARD_H / 2,
-                    backfaceVisibility: 'hidden', willChange: 'transform',
-                    boxShadow: '0 30px 60px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45)',
-                  }}
-                >
-                  <Shot p={p} className="h-full w-full rounded-2xl" />
-                  {i === active && (
-                    <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-[#4D9BFF]" />
-                  )}
-                </button>
-              ))}
-            </div>
+      <div
+        className="relative z-10 shrink-0 select-none"
+        style={{ height: G.ringH, perspective: G.persp, perspectiveOrigin: '50% 30%', touchAction: 'pan-y' }}
+        onPointerEnter={() => setPaused(true)}
+        onPointerLeave={() => setPaused(false)}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={() => setPaused(false)}
+        onClickCapture={(e) => { if (drag.current?.moved) { e.stopPropagation(); e.preventDefault(); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+          if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+        }}
+      >
+        <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
+          <div className="absolute left-1/2" style={{ top: '50%', transformStyle: 'preserve-3d', width: 0, height: 0 }}>
+            {projects.map((p, i) => (
+              <button
+                key={p.slug}
+                ref={(el) => { cardEls.current[i] = el; }}
+                type="button"
+                aria-label={`${p.name} — ${catLabel(p.cat)}`}
+                aria-current={i === active}
+                onClick={() => { setActiveSafe(i); focusCard(i); }}
+                className="absolute rounded-2xl outline-none ring-1 ring-white/10 focus-visible:ring-2 focus-visible:ring-[#4D9BFF]"
+                style={{
+                  width: G.w, height: G.h, left: -G.w / 2, top: -G.h / 2,
+                  backfaceVisibility: 'hidden', willChange: 'transform',
+                  boxShadow: '0 30px 60px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45)',
+                }}
+              >
+                <Shot p={p} mobile className="h-full w-full rounded-2xl" />
+                {i === active && (
+                  <span className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-[#4D9BFF]" />
+                )}
+              </button>
+            ))}
           </div>
         </div>
-      ) : (
-        <div
-          className="relative z-10 shrink-0 pb-4 pt-1"
-          onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}
-          onFocusCapture={() => setPaused(true)} onBlurCapture={() => setPaused(false)}
-        >
-          <div role="listbox" aria-label="I nostri lavori"
-            className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-[calc(50%-80px)]">
-            {projects.map((p, i) => {
-              const on = i === active;
-              return (
-                <button key={p.slug} ref={(el) => { thumbRefs.current[i] = el; }}
-                  type="button" role="option" aria-selected={on}
-                  aria-label={`${p.name} — ${catLabel(p.cat)}`} onClick={() => setActiveSafe(i)}
-                  className="group shrink-0 snap-center rounded-xl outline-none"
-                  style={{ width: 160, transform: on ? 'translateY(-4px)' : 'none', transition: 'transform .3s' }}>
-                  <Shot p={p} className={`aspect-[160/110] w-full rounded-xl ring-1 transition-all duration-300 ${
-                    on ? 'ring-2 ring-[#4D9BFF] shadow-[0_16px_40px_-16px_rgba(0,104,248,0.7)]'
-                       : 'ring-white/10 opacity-55 group-hover:opacity-90'}`} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* la finestra browser: grande, centrata, sovrapposta al pannello; mostra lo screenshot INTERO */}
-      <div className="relative z-30 mx-auto w-full px-4 pb-10 max-md:mt-2 md:-mt-[120px] md:px-8" style={{ maxWidth: 1180 }}>
+      <div className="relative z-30 mx-auto w-full px-4 pb-10 -mt-[70px] md:-mt-[150px] md:px-8" style={{ maxWidth: 1180 }}>
         <div className="overflow-hidden rounded-2xl bg-[#0e1424]/85 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.9)] ring-1 ring-white/12 backdrop-blur-md">
           <div className="flex items-center gap-2 border-b border-white/10 bg-white/[0.04] px-3.5 py-2.5">
             <span className="flex w-16 gap-1.5">
