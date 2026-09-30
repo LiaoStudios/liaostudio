@@ -12,6 +12,11 @@ body { margin: 0; background: #EFEFEF; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* la finestra del browser si adatta all'altezza dello schermo (16:10 + barra),
+   così lo screenshot intero, il pannello curvo e la navbar stanno in una schermata */
+.hero-browser { width: min(100%, max(300px, calc((100svh - 390px) * 1.6))); }
+@media (max-width: 759px) { .hero-browser { width: 100%; } }
+
 /* il contenuto del browser sfuma quando cambi progetto */
 @keyframes heroShotIn {
   from { opacity: 0; transform: scale(1.015); }
