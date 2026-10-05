@@ -5,10 +5,55 @@ import RollButton from './TextRoll';
 import { useProgetti, type UIProject } from '../hooks/useProgetti';
 import { asset } from '../lib/asset';
 
-/** Dominio pulito da un url, o null se il progetto non è pubblico. */
+/** Indirizzo leggibile (dominio + percorso) da un url, o null se il progetto non è pubblico. */
 function hostOf(url?: string): string | null {
   if (!url) return null;
-  try { return new URL(url).host.replace(/^www\./, ''); } catch { return null; }
+  try {
+    const u = new URL(url);
+    return (u.host + u.pathname).replace(/^www\./, '').replace(/\/$/, '');
+  } catch { return null; }
+}
+
+/**
+ * Il sito vero, navigabile, dentro la finestra. Viene disegnato a 1280px di
+ * larghezza (la sua versione desktop) e rimpicciolito per entrare nel riquadro:
+ * su telefono resta la versione desktop, mentre le card mostrano quella mobile.
+ */
+const VIRTUAL_W = 1280;
+function LiveSite({ p, url }: { p: UIProject; url: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const vw = Math.max(size.w, VIRTUAL_W);
+  const k = size.w ? size.w / vw : 1;
+  return (
+    <div ref={box} className="absolute inset-0 overflow-hidden">
+      {/* lo screenshot resta sotto finché il sito non ha caricato */}
+      <Shot p={p} className="absolute inset-0 h-full w-full" />
+      {size.w > 0 && (
+        <iframe
+          src={url}
+          title={`Sito di ${p.name}, navigabile`}
+          onLoad={() => setLoaded(true)}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+          className="absolute left-0 top-0 origin-top-left border-0 bg-white transition-opacity duration-500"
+          style={{ width: vw, height: size.h / k, transform: `scale(${k})`, opacity: loaded ? 1 : 0 }}
+        />
+      )}
+      {!loaded && (
+        <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-[12px] text-white/85 backdrop-blur">
+          Caricamento del sito…
+        </span>
+      )}
+    </div>
+  );
 }
 
 function usePrefersReducedMotion() {
@@ -90,6 +135,10 @@ export default function Hero() {
 
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  // live = il sito è aperto e navigabile nella finestra: la giostra si ferma
+  const [live, setLive] = useState(false);
+  const liveRef = useRef(false);
+  liveRef.current = live;
   const activeRef = useRef(0);
   activeRef.current = active;
 
@@ -127,7 +176,7 @@ export default function Hero() {
         const next = phaseRef.current + (tgt - phaseRef.current) * Math.min(1, dt * 7);
         if (Math.abs(tgt - next) < 0.05) { phaseRef.current = tgt; targetRef.current = null; }
         else phaseRef.current = next;
-      } else if (!pausedRef.current && !reduceRef.current) {
+      } else if (!pausedRef.current && !reduceRef.current && !liveRef.current) {
         phaseRef.current -= SPIN * dt; // rotazione lenta e continua, mai azzerata
       }
 
@@ -187,10 +236,16 @@ export default function Hero() {
   );
 
   const cur: UIProject | undefined = projects[active];
+  const [frameSlug, setFrameSlug] = useState<string | null>(null);
+  useEffect(() => {
+    if (!live || !cur) { setFrameSlug(null); return; }
+    const id = window.setTimeout(() => setFrameSlug(cur.slug), 350);
+    return () => window.clearTimeout(id);
+  }, [live, cur]);
   const host = hostOf(cur?.url);
 
-  const prev = () => { const i = (active - 1 + n) % n; setActiveSafe(i); focusCard(i); };
-  const next = () => { const i = (active + 1) % n; setActiveSafe(i); focusCard(i); };
+  const prev = () => { const i = (active - 1 + n) % n; setActiveSafe(i); focusCard(i); setLive(true); };
+  const next = () => { const i = (active + 1) % n; setActiveSafe(i); focusCard(i); setLive(true); };
 
   return (
     <section id="top" className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0B1220] text-white">
@@ -222,7 +277,7 @@ export default function Hero() {
           Costruiamo siti <span className="text-[#4D9BFF]">che portano clienti.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-[52ch] text-[14px] leading-[1.55] text-white/60 sm:text-[16px]">
-          Scegli un lavoro dal pannello: la versione mobile è nelle card, quella desktop si apre qui sotto, intera.
+          Scegli un lavoro dal pannello: la versione mobile è nelle card, quella desktop si apre qui sotto e la puoi navigare senza uscire dalla pagina.
         </p>
         <div className="mt-6">
           <RollButton href="#contatti" tone="blue">Iniziamo il tuo progetto</RollButton>
@@ -253,7 +308,7 @@ export default function Hero() {
                 type="button"
                 aria-label={`${p.name} — ${catLabel(p.cat)}`}
                 aria-current={i === active}
-                onClick={() => { setActiveSafe(i); focusCard(i); }}
+                onClick={() => { setActiveSafe(i); focusCard(i); setLive(true); }}
                 className="absolute rounded-2xl outline-none ring-1 ring-white/10 focus-visible:ring-2 focus-visible:ring-[#4D9BFF]"
                 style={{
                   width: G.w, height: G.h, left: -G.w / 2, top: -G.h / 2,
@@ -295,7 +350,18 @@ export default function Hero() {
           </div>
           {/* 16:10 = proporzione esatta degli screenshot: nessuna parte tagliata */}
           <div className="relative aspect-[16/10] w-full">
-            {cur && <Shot key={cur.slug} p={cur} className="hero-shot-in absolute inset-0 h-full w-full" />}
+            {cur && (live && cur.url && frameSlug === cur.slug
+              ? <LiveSite key={cur.slug} p={cur} url={cur.url} />
+              : <Shot key={cur.slug} p={cur} className="hero-shot-in absolute inset-0 h-full w-full" />)}
+            {cur?.url && !live && (
+              <button type="button" onClick={() => setLive(true)}
+                className="group absolute inset-0 flex items-end justify-center pb-5 outline-none"
+                aria-label={`Apri ${cur.name} e navigalo qui nella finestra`}>
+                <span className="inline-flex items-center gap-2 rounded-full bg-[#0068F8] px-4 py-2 text-[13px] font-medium text-white shadow-[0_12px_30px_-8px_rgba(0,104,248,0.8)] transition-transform duration-200 group-hover:-translate-y-0.5 group-focus-visible:ring-2 group-focus-visible:ring-white">
+                  Naviga il sito qui dentro
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
